@@ -2,6 +2,9 @@ require('dotenv').config();
 const axios = require('axios');
 const { createClient } = require('@supabase/supabase-js');
 const cron = require('node-cron');
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
 // ENV variables
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -42,13 +45,13 @@ async function fetchAndStoreData() {
       }
     });
 
-    console.log("📦 API Raw Response:", JSON.stringify(dataRes.data, null, 2));
+    console.log("\ud83d\udce6 API Raw Response:", JSON.stringify(dataRes.data, null, 2));
 
-    // ✅ Correct extraction from 'programs' key
+    // \u2705 Correct extraction from 'programs' key
     const records = dataRes.data.programs;
 
     if (!Array.isArray(records) || records.length === 0) {
-      console.log('⚠️ No records found');
+      console.log('\u26a0\ufe0f No records found');
       return;
     }
 
@@ -78,7 +81,7 @@ async function fetchAndStoreData() {
         .single();
 
       if (error) {
-        console.error('❌ Insert error:', error);
+        console.error('\u274c Insert error:', error);
         continue;
       }
 
@@ -95,17 +98,36 @@ async function fetchAndStoreData() {
       }
     }
 
-    console.log('✅ All data inserted successfully');
+    console.log('\u2705 All data inserted successfully');
   } catch (err) {
-    console.error('❌ Error:', err.response?.data || err.message);
+    console.error('\u274c Error:', err.response?.data || err.message);
   }
 }
 
 // Schedule daily at 10 AM
 cron.schedule('0 10 * * *', () => {
-  console.log('⏰ Scheduled fetch at 10AM');
+  console.log('\u23f0 Scheduled fetch at 10AM');
   fetchAndStoreData();
 });
 
 // Manual run
 fetchAndStoreData();
+
+// Express app for manual trigger
+app.get('/', (req, res) => {
+  res.send('\ud83d\udfe2 HP Data Loader is running');
+});
+
+app.get('/run-now', async (req, res) => {
+  try {
+    await fetchAndStoreData();
+    res.send('\u2705 Data fetch completed and pushed to Supabase');
+  } catch (error) {
+    console.error('\u274c Error during manual run:', error.message);
+    res.status(500).send('\u274c Failed to run data fetch');
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`\ud83d\ude80 Server is listening on port ${PORT}`);
+});
