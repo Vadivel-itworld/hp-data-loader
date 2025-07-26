@@ -4,7 +4,6 @@ const { createClient } = require('@supabase/supabase-js');
 const cron = require('node-cron');
 const express = require('express');
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 // ENV variables
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -15,11 +14,12 @@ const X_API_KEY = process.env.X_API_KEY;
 const HP_AUTH_URL = process.env.HP_AUTH_URL;
 const HP_DATA_URL = process.env.HP_DATA_URL;
 
+const PORT = process.env.PORT || 3000;
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 async function fetchAndStoreData() {
   try {
-    // Step 1: Get token
     const auth = Buffer.from(`${HP_USERNAME}:${HP_PASSWORD}`).toString('base64');
     const tokenRes = await axios.post(HP_AUTH_URL, null, {
       headers: {
@@ -31,7 +31,6 @@ async function fetchAndStoreData() {
     const accessToken = tokenRes.data.access_token;
     if (!accessToken) throw new Error('No access token');
 
-    // Step 2: Get data
     const dataRes = await axios.get(HP_DATA_URL, {
       headers: {
         token: accessToken,
@@ -45,13 +44,10 @@ async function fetchAndStoreData() {
       }
     });
 
-    console.log("\ud83d\udce6 API Raw Response:", JSON.stringify(dataRes.data, null, 2));
-
-    // \u2705 Correct extraction from 'programs' key
     const records = dataRes.data.programs;
 
     if (!Array.isArray(records) || records.length === 0) {
-      console.log('\u26a0\ufe0f No records found');
+      console.log('⚠️ No records found');
       return;
     }
 
@@ -81,7 +77,7 @@ async function fetchAndStoreData() {
         .single();
 
       if (error) {
-        console.error('\u274c Insert error:', error);
+        console.error('❌ Insert error:', error);
         continue;
       }
 
@@ -98,36 +94,30 @@ async function fetchAndStoreData() {
       }
     }
 
-    console.log('\u2705 All data inserted successfully');
+    console.log('✅ All data inserted successfully');
   } catch (err) {
-    console.error('\u274c Error:', err.response?.data || err.message);
+    console.error('❌ Error:', err.response?.data || err.message);
   }
 }
 
-// Schedule daily at 10 AM
-cron.schedule('0 10 * * *', () => {
-  console.log('\u23f0 Scheduled fetch at 10AM');
-  fetchAndStoreData();
-});
-
-// Manual run
-fetchAndStoreData();
-
-// Express app for manual trigger
+// Manual test route
 app.get('/', (req, res) => {
-  res.send('\ud83d\udfe2 HP Data Loader is running');
+  res.send('✅ HP Data Loader is running');
 });
 
+// Trigger data fetch manually
 app.get('/run-now', async (req, res) => {
-  try {
-    await fetchAndStoreData();
-    res.send('\u2705 Data fetch completed and pushed to Supabase');
-  } catch (error) {
-    console.error('\u274c Error during manual run:', error.message);
-    res.status(500).send('\u274c Failed to run data fetch');
-  }
+  await fetchAndStoreData();
+  res.send('✅ Manual fetch complete');
 });
 
+// Start Express server so Render sees the app is running
 app.listen(PORT, () => {
-  console.log(`\ud83d\ude80 Server is listening on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
+});
+
+// Optional: Daily job at 10 AM
+cron.schedule('0 10 * * *', () => {
+  console.log('⏰ Running scheduled fetch at 10 AM');
+  fetchAndStoreData();
 });
